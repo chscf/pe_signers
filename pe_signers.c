@@ -19,11 +19,7 @@
 #include <openssl/cms.h>
 #include <openssl/asn1t.h>
 
-#define ss_log_debug	printf
-#define ss_log_error	printf
-#define ss_log_info		printf
-
-#define SS_ERR_OK		0
+#define ERR_OK		0
 
 typedef int 		ss_return_t;
 typedef uint32_t 	ss_uint32_t;
@@ -38,7 +34,6 @@ typedef struct _ss_blob
 }
 ss_blob_t;
 
-#if 1
 typedef struct SIGNATURE_st {
 	PKCS7 *p7;
 	int md_nid;
@@ -314,7 +309,7 @@ static CMS_ContentInfo *cms_get_timestamp(PKCS7_SIGNED *p7_signed, PKCS7_SIGNER_
 
 	/* Convert PKCS7 into CMS_ContentInfo */
 	if (((len = i2d_PKCS7(p7, NULL)) <= 0) || (p = OPENSSL_malloc(len)) == NULL) {
-		printf("Failed to convert pkcs7: %d\n", len);
+		//printf("Failed to convert pkcs7: %d\n", len);
 		goto out;
 	}
 	len = i2d_PKCS7(p7, &p);
@@ -325,7 +320,9 @@ static CMS_ContentInfo *cms_get_timestamp(PKCS7_SIGNED *p7_signed, PKCS7_SIGNER_
 
 out:
 	if (!cms)
-		ERR_print_errors_fp(stdout);
+	{
+		//ERR_print_errors_fp(stdout);
+	}
 	PKCS7_free(p7);
 	return cms;
 }
@@ -463,11 +460,11 @@ static void get_unsigned_attributes(STACK_OF(SIGNATURE) **signatures, SIGNATURE 
 					signature->time = time;
 					signature->timestamp = timestamp;
 				} else {
-					printf("Error: Authenticode Timestamp could not be decoded correctly\n\n");
+					//printf("Error: Authenticode Timestamp could not be decoded correctly\n\n");
 					PKCS7_SIGNER_INFO_free(countersi);
 				}
 			} else {
-				printf("Error: PKCS9_TIMESTAMP_SIGNING_TIME attribute not found\n\n");
+				//printf("Error: PKCS9_TIMESTAMP_SIGNING_TIME attribute not found\n\n");
 				PKCS7_SIGNER_INFO_free(countersi);
 			}
 		} else if (!strcmp(object_txt, SPC_RFC3161_OBJID)) {
@@ -485,12 +482,12 @@ static void get_unsigned_attributes(STACK_OF(SIGNATURE) **signatures, SIGNATURE 
 					signature->time = time;
 					signature->timestamp = timestamp;
 				} else {
-					printf("Error: Corrupt RFC3161 Timestamp embedded content\n\n");
-					ERR_print_errors_fp(stdout);
+					//printf("Error: Corrupt RFC3161 Timestamp embedded content\n\n");
+					//ERR_print_errors_fp(stdout);
 				}
 			} else {
-				printf("Error: RFC3161 Timestamp could not be decoded correctly\n\n");
-				ERR_print_errors_fp(stdout);
+				//printf("Error: RFC3161 Timestamp could not be decoded correctly\n\n");
+				//ERR_print_errors_fp(stdout);
 			}
 		} else if (allownest && !strcmp(object_txt, SPC_NESTED_SIGNATURE_OBJID)) {
 			/* Nested Signature - Policy OID: 1.3.6.1.4.1.311.2.4.1 */
@@ -508,7 +505,9 @@ static void get_unsigned_attributes(STACK_OF(SIGNATURE) **signatures, SIGNATURE 
 			/* Unauthenticated Data Blob - Policy OID: 1.3.6.1.4.1.42921.1.2.1 */
 			signature->blob = X509_ATTRIBUTE_get0_data(attr, 0, V_ASN1_UTF8STRING, NULL);
 		} else
-			printf("Unsupported Policy OID: %s\n\n", object_txt);
+		{
+			//printf("Unsupported Policy OID: %s\n\n", object_txt);
+		}
 	}
 }
 
@@ -556,11 +555,11 @@ ss_crypt_openssl_pkcs7_get_signers_new(
 		ss_blob_t *sigp7_bin,
 		ss_char_t ***signer_list)
 {
-	ss_return_t ret = SS_ERR_OK;
+	ss_return_t ret = ERR_OK;
 	BIO *in = 0x0;
 	PKCS7 *p7 = 0x0;
 	ss_char_t **tmp_list = 0x0;
-	ss_uint32_t num_signers;
+	ss_uint32_t num_signers = 0;
 	STACK_OF(SIGNATURE) *signatures = sk_SIGNATURE_new_null();
 	int i;
 	STACK_OF(X509) *signers = 0x0;
@@ -568,6 +567,8 @@ ss_crypt_openssl_pkcs7_get_signers_new(
 	SIGNATURE *signature = 0x0;
 	char *subject = 0x0;
 	char *issuer = 0x0;
+
+	*signer_list = 0x0;
 
 	in = BIO_new(BIO_s_mem());
 	if (in && sigp7_bin)
@@ -577,52 +578,50 @@ ss_crypt_openssl_pkcs7_get_signers_new(
 	}
 
 	if (!append_signature_list(&signatures, p7, 1)) {
-		printf("Failed to create signature list\n\n");
+		//printf("Failed to create signature list\n\n");
 		goto out;
 	}
 
 	num_signers = sk_SIGNATURE_num(signatures);
-	printf("%s: Number of signatures: %d\n", __FUNCTION__, num_signers);
+
+	if (num_signers == 0)
+		goto out;
+
 	tmp_list = (ss_char_t **)calloc(sizeof(ss_char_t *)*(num_signers+1),1);
 
 	for (i = 0; i < sk_SIGNATURE_num(signatures); i++) {
 		signature = sk_SIGNATURE_value(signatures, i);
-		ss_log_debug("%s: Signature Index: %d %s\n", __FUNCTION__, i, i==0 ? " (Primary Signature)" : "");
 
 		signers = PKCS7_get0_signers(signature->p7, NULL, 0);
 		num_signers = sk_X509_num(signers);
-		ss_log_debug("%s: Number of signers: %d\n", __FUNCTION__, num_signers);
 
 		if (!num_signers || (num_signers != 1))
 		{
 			*signer_list = 0x0;
-			ret = SS_ERR_OK;
+			ret = ERR_OK;
 			goto out;
 		}
 
 		cert = sk_X509_value(signers, 0);
 		subject = X509_NAME_oneline(X509_get_subject_name(cert), NULL, 0);
 		issuer = X509_NAME_oneline(X509_get_issuer_name(cert), NULL, 0);
-		ss_log_debug("%s: Signer #%d:\n\t\tSubject : %s\n\t\tIssuer  : %s\n", __FUNCTION__, i, subject, issuer);
 		tmp_list[i] = strdup(subject);
 
 		OPENSSL_free(subject);
 		OPENSSL_free(issuer);
-		//sk_X509_free(cert);
 		sk_X509_free(signers);
 	}
 
 	*signer_list = tmp_list;
 
 out:
-	ss_log_debug("<< %s\n", __FUNCTION__);
 	if (in) BIO_free(in);
 	if (p7) PKCS7_free(p7);
-	//sk_SIGNATURE_pop_free(signatures, signature_free);
+
+	printf("%d\n", num_signers);
 
 	return ret;
 }
-#endif
 
 int main(int argc, char **argv)
 {
@@ -657,14 +656,13 @@ int main(int argc, char **argv)
 	ss_crypt_openssl_pkcs7_get_signers_new(&p7_bin, &signers);
 	if (signers)
 	{
+		i = 0;
 		while (signers[i])
 		{
-			printf("Signer #%d: %s\n", i, signers[i]);
+			printf("%s\n", signers[i]);
 			i++;
 		}
 	}
-	else
-		printf("No signers found\n");
-	
+
 	return 0;
 }

@@ -1,10 +1,15 @@
-all: pe_signers.c
-	gcc -o pe_signers pe_signers.c -lcrypto
+CC=gcc
+
+TARGET=pe_signers
+OBJECTS=pe_signers.o
+
+CFLAGS=-ggdb3 -O0
+
+.c.o:
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+$(TARGET): $(OBJECTS)
+	$(CC) -o $(TARGET) $(OBJECTS) -lcrypto
 
 clean:
-	rm *.o
-
-clobber:
-	rm *.o
-	rm pe_signers
-
+	rm -f *.o pe_signers
