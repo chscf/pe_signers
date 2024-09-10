@@ -560,6 +560,7 @@ ss_crypt_openssl_pkcs7_get_signers_new(
 	PKCS7 *p7 = 0x0;
 	ss_char_t **tmp_list = 0x0;
 	ss_uint32_t num_signers = 0;
+	ss_uint32_t total_num_signers = 0;
 	STACK_OF(SIGNATURE) *signatures = sk_SIGNATURE_new_null();
 	int i;
 	STACK_OF(X509) *signers = 0x0;
@@ -582,12 +583,12 @@ ss_crypt_openssl_pkcs7_get_signers_new(
 		goto out;
 	}
 
-	num_signers = sk_SIGNATURE_num(signatures);
+	total_num_signers = sk_SIGNATURE_num(signatures);
 
-	if (num_signers == 0)
+	if (total_num_signers == 0)
 		goto out;
 
-	tmp_list = (ss_char_t **)calloc(sizeof(ss_char_t *)*(num_signers+1),1);
+	tmp_list = (ss_char_t **)calloc(sizeof(ss_char_t *)*(total_num_signers+1),1);
 
 	for (i = 0; i < sk_SIGNATURE_num(signatures); i++) {
 		signature = sk_SIGNATURE_value(signatures, i);
@@ -618,7 +619,7 @@ out:
 	if (in) BIO_free(in);
 	if (p7) PKCS7_free(p7);
 
-	printf("%d\n", num_signers);
+	printf("%d\n", total_num_signers);
 
 	return ret;
 }
