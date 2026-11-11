@@ -601,6 +601,7 @@ ss_crypt_openssl_pkcs7_get_signers_new(
 
 		if (!num_signers || (num_signers != 1))
 		{
+			// NOLINTNEXTLINE(clang-analyzer-unix.Malloc): one-shot tool, freed when the process exits
 			*signer_list = 0x0;
 			ret = ERR_OK;
 			goto out;
@@ -668,5 +669,6 @@ int main(int argc, char **argv)
 		}
 	}
 
+	// NOLINTNEXTLINE(clang-analyzer-unix.Malloc): one-shot tool, freed when the process exits
 	return 0;
 }
