@@ -517,6 +517,9 @@ static int append_signature_list(STACK_OF(SIGNATURE) **signatures, PKCS7 *p7, in
 	PKCS7_SIGNER_INFO *si;
 	STACK_OF(X509_ATTRIBUTE) *auth_attr, *unauth_attr;
 
+	if (p7 == NULL)
+		return 0; /* FAILED: not a PKCS#7 PEM */
+
 	si = sk_PKCS7_SIGNER_INFO_value(p7->d.sign->signer_info, 0);
 	if (si == NULL)
 		return 0; /* FAILED */
