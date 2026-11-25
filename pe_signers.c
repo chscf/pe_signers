@@ -240,13 +240,13 @@ static time_t asn1_get_time_t(ASN1_TIME *s)
 
 static time_t si_get_time(PKCS7_SIGNER_INFO *si)
 {
-	STACK_OF(X509_ATTRIBUTE) *auth_attr;
-	X509_ATTRIBUTE *attr;
-	ASN1_OBJECT *object;
+	STACK_OF(X509_ATTRIBUTE) *auth_attr = NULL;
+	X509_ATTRIBUTE *attr = NULL;
+	ASN1_OBJECT *object = NULL;
 	ASN1_UTCTIME *time = NULL;
-	time_t posix_time;
+	time_t posix_time = 0;
 	char object_txt[128];
-	int i;
+	int i = 0;
 
 	auth_attr = PKCS7_get_signed_attributes(si);  /* cont[0] */
 	if (auth_attr)
@@ -273,11 +273,11 @@ static time_t si_get_time(PKCS7_SIGNER_INFO *si)
 static CMS_ContentInfo *cms_get_timestamp(PKCS7_SIGNED *p7_signed, PKCS7_SIGNER_INFO *countersignature)
 {
 	CMS_ContentInfo *cms = NULL;
-	PKCS7_SIGNER_INFO *si;
+	PKCS7_SIGNER_INFO *si = NULL;
 	PKCS7 *p7 = NULL, *content = NULL;
 	unsigned char *p = NULL;
-	const unsigned char *q;
-	int i, len = 0;
+	const unsigned char *q = NULL;
+	int i = 0, len = 0;
 
 	p7 = PKCS7_new();
 	si = sk_PKCS7_SIGNER_INFO_value(p7_signed->signer_info, 0);
@@ -307,8 +307,13 @@ static CMS_ContentInfo *cms_get_timestamp(PKCS7_SIGNED *p7_signed, PKCS7_SIGNER_
 	}
 
 	/* Convert PKCS7 into CMS_ContentInfo */
-	if (((len = i2d_PKCS7(p7, NULL)) <= 0) || (p = OPENSSL_malloc(len)) == NULL) {
+	len = i2d_PKCS7(p7, NULL);
+	if (len <= 0) {
 		//printf("Failed to convert pkcs7: %d\n", len);
+		goto out;
+	}
+	p = OPENSSL_malloc(len);
+	if (p == NULL) {
 		goto out;
 	}
 	len = i2d_PKCS7(p7, &p);
@@ -328,7 +333,7 @@ out:
 
 static time_t cms_get_time(CMS_ContentInfo *cms)
 {
-	ASN1_OCTET_STRING **pos;
+	ASN1_OCTET_STRING **pos = NULL;
 	const unsigned char *p = NULL;
 	TimeStampToken *token = NULL;
 	ASN1_GENERALIZEDTIME *asn1_time = NULL;
@@ -349,12 +354,12 @@ static time_t cms_get_time(CMS_ContentInfo *cms)
 
 static void get_signed_attributes(SIGNATURE *signature, STACK_OF(X509_ATTRIBUTE) *auth_attr)
 {
-	X509_ATTRIBUTE *attr;
-	ASN1_OBJECT *object;
-	ASN1_STRING *value;
+	X509_ATTRIBUTE *attr = NULL;
+	ASN1_OBJECT *object = NULL;
+	ASN1_STRING *value = NULL;
 	char object_txt[128];
-	const unsigned char *data;
-	int i;
+	const unsigned char *data = NULL;
+	int i = 0;
 
 	for (i=0; i<X509at_get_attr_count(auth_attr); i++) {
 		attr = X509at_get_attr(auth_attr, i);
@@ -368,12 +373,12 @@ static void get_signed_attributes(SIGNATURE *signature, STACK_OF(X509_ATTRIBUTE)
 			signature->digest  = X509_ATTRIBUTE_get0_data(attr, 0, V_ASN1_OCTET_STRING, NULL);
 		} else if (!strcmp(object_txt, PKCS9_SIGNING_TIME)) {
 			/* PKCS#9 signing time - Policy OID: 1.2.840.113549.1.9.5 */
-			ASN1_UTCTIME *time;
+			ASN1_UTCTIME *time = NULL;
 			time = X509_ATTRIBUTE_get0_data(attr, 0, V_ASN1_UTCTIME, NULL);
 			signature->signtime = asn1_get_time_t(time);
 		} else if (!strcmp(object_txt, SPC_SP_OPUS_INFO_OBJID)) {
 			/* Microsoft OID: 1.3.6.1.4.1.311.2.1.12 */
-			SpcSpOpusInfo *opus;
+			SpcSpOpusInfo *opus = NULL;
 			value  = X509_ATTRIBUTE_get0_data(attr, 0, V_ASN1_SEQUENCE, NULL);
 			if (value == NULL)
 				continue;
@@ -383,7 +388,7 @@ static void get_signed_attributes(SIGNATURE *signature, STACK_OF(X509_ATTRIBUTE)
 				signature->url = OPENSSL_strdup((char *)opus->moreInfo->value.url->data);
 			if (opus->programName) {
 				if (opus->programName->type == 0) {
-					unsigned char *data;
+					unsigned char *data = NULL;
 					int len = ASN1_STRING_to_UTF8(&data, opus->programName->value.unicode);
 					if (len >= 0) {
 						signature->desc = OPENSSL_strndup((char *)data, len);
@@ -426,12 +431,12 @@ void signature_free(SIGNATURE *signature)
 static void get_unsigned_attributes(STACK_OF(SIGNATURE) **signatures, SIGNATURE *signature,
 		STACK_OF(X509_ATTRIBUTE) *unauth_attr, PKCS7 *p7, int allownest)
 {
-	X509_ATTRIBUTE *attr;
-	ASN1_OBJECT *object;
-	ASN1_STRING *value;
+	X509_ATTRIBUTE *attr = NULL;
+	ASN1_OBJECT *object = NULL;
+	ASN1_STRING *value = NULL;
 	char object_txt[128];
-	const unsigned char *data;
-	int i, j;
+	const unsigned char *data = NULL;
+	int i = 0, j = 0;
 
 	for (i=0; i<X509at_get_attr_count(unauth_attr); i++) {
 		attr = X509at_get_attr(unauth_attr, i);
@@ -442,9 +447,9 @@ static void get_unsigned_attributes(STACK_OF(SIGNATURE) **signatures, SIGNATURE 
 		OBJ_obj2txt(object_txt, sizeof object_txt, object, 1);
 		if (!strcmp(object_txt, PKCS9_COUNTER_SIGNATURE)) {
 			/* Authenticode Timestamp - Policy OID: 1.2.840.113549.1.9.6 */
-			PKCS7_SIGNER_INFO *countersi;
+			PKCS7_SIGNER_INFO *countersi = NULL;
 			CMS_ContentInfo *timestamp = NULL;
-			time_t time;
+			time_t time = 0;
 			value = X509_ATTRIBUTE_get0_data(attr, 0, V_ASN1_SEQUENCE, NULL);
 			if (value == NULL)
 				continue;
@@ -469,7 +474,7 @@ static void get_unsigned_attributes(STACK_OF(SIGNATURE) **signatures, SIGNATURE 
 		} else if (!strcmp(object_txt, SPC_RFC3161_OBJID)) {
 			/* RFC3161 Timestamp - Policy OID: 1.3.6.1.4.1.311.3.3.1 */
 			CMS_ContentInfo *timestamp = NULL;
-			time_t time;
+			time_t time = 0;
 			value = X509_ATTRIBUTE_get0_data(attr, 0, V_ASN1_SEQUENCE, NULL);
 			if (value == NULL)
 				continue;
@@ -490,7 +495,7 @@ static void get_unsigned_attributes(STACK_OF(SIGNATURE) **signatures, SIGNATURE 
 			}
 		} else if (allownest && !strcmp(object_txt, SPC_NESTED_SIGNATURE_OBJID)) {
 			/* Nested Signature - Policy OID: 1.3.6.1.4.1.311.2.4.1 */
-			PKCS7 *nested;
+			PKCS7 *nested = NULL;
 			for (j=0; j<X509_ATTRIBUTE_count(attr); j++) {
 				value = X509_ATTRIBUTE_get0_data(attr, j, V_ASN1_SEQUENCE, NULL);
 				if (value == NULL)
@@ -513,8 +518,8 @@ static void get_unsigned_attributes(STACK_OF(SIGNATURE) **signatures, SIGNATURE 
 static int append_signature_list(STACK_OF(SIGNATURE) **signatures, PKCS7 *p7, int allownest)
 {
 	SIGNATURE *signature = NULL;
-	PKCS7_SIGNER_INFO *si;
-	STACK_OF(X509_ATTRIBUTE) *auth_attr, *unauth_attr;
+	PKCS7_SIGNER_INFO *si = NULL;
+	STACK_OF(X509_ATTRIBUTE) *auth_attr = NULL, *unauth_attr = NULL;
 
 	if (p7 == NULL)
 		return 0; /* FAILED: not a PKCS#7 PEM */
@@ -564,7 +569,7 @@ ss_crypt_openssl_pkcs7_get_signers_new(
 	ss_uint32_t num_signers = 0;
 	ss_uint32_t total_num_signers = 0;
 	STACK_OF(SIGNATURE) *signatures = sk_SIGNATURE_new_null();
-	int i;
+	int i = 0;
 	STACK_OF(X509) *signers = 0x0;
 	X509 *cert = 0x0;
 	SIGNATURE *signature = 0x0;
@@ -576,7 +581,7 @@ ss_crypt_openssl_pkcs7_get_signers_new(
 	in = BIO_new(BIO_s_mem());
 	if (in && sigp7_bin)
 	{
-		BIO_write(in, sigp7_bin->data, sigp7_bin->length);
+		BIO_write(in, sigp7_bin->data, (int)sigp7_bin->length);
 		p7 = PEM_read_bio_PKCS7(in,NULL,NULL,NULL);
 	}
 
@@ -634,7 +639,7 @@ int main(int argc, char **argv)
 	char *p7_filename = 0x0;
 	ss_blob_t p7_bin;
 	ss_char_t **signers = 0x0;
-	int i;
+	int i = 0;
 	
 	p7_filename = argv[1];
 	
@@ -654,8 +659,14 @@ int main(int argc, char **argv)
 	p7_bin.data = (ss_byte_t *)calloc(st.st_size,1);
 	p7_bin.length = st.st_size;
 	
-	fread(p7_bin.data, st.st_size, 1, f);
-	fclose(f);
+	if (fread(p7_bin.data, 1, st.st_size, f) != (size_t)st.st_size)
+	{
+		perror("fread");
+		(void)fclose(f);
+		free(p7_bin.data);
+		return -1;
+	}
+	(void)fclose(f);
 	
 	ss_crypt_openssl_pkcs7_get_signers_new(&p7_bin, &signers);
 	if (signers)
